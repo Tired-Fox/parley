@@ -1,0 +1,19 @@
+.{
+    .name = .parley,
+    .version = "0.0.0",
+    .fingerprint = 0xaf1afeb61f424306, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .zerm = .{
+            .url = "git+https://github.com/Tired-Fox/zerm#184bd0cf6114572c0b6bc7f8e67196f69b4a22fe",
+            .hash = "zerm-0.0.1-4QSLcv_fAQB5WXW4rVzdGXnYv-x2LeVW8O03kfbFOM9p",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}

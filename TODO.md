@@ -1,0 +1,12 @@
+- [x] Confirmation
+- [-] Input
+    - [x] Text
+    - [x] Password
+    - [ ] History
+    - [ ] Completion
+- [-] Select
+    - [x] Single
+    - [x] Multi
+    - [ ] Fuzzy
+- [ ] Sort
+- [ ] Themes
