@@ -1,0 +1,12 @@
+- [x] Confirmation
+- [ ] Input
+    - [ ] Validation
+    - [ ] Password
+    - [ ] History
+    - [ ] Completion
+- [ ] Select
+    - [ ] Multi
+    - [ ] Fuzzy
+- [ ] Sort
+- [ ] Themes
+- [ ] Editor support
