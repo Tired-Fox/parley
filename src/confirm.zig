@@ -105,13 +105,6 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?bool {
     return confirmed;
 }
 
-/// Interact with the user allowing them to select `yes`, `no`, or quit.
-///
-/// Output is displayed to Stderr
-pub fn interactOpt(self: *const @This()) !?bool {
-    return try self.interactOnOpt(.stderr);
-}
-
 /// Interact with the user allowing them to select `yes`, `no`.
 pub fn interactOn(self: *const @This(), stream: Stream) !bool {
     var event_stream = EventStream.init(self.allocator);
@@ -183,6 +176,12 @@ pub fn interactOn(self: *const @This(), stream: Stream) !bool {
     return confirmed.?;
 }
 
+/// Interact with the user allowing them to select `yes`, `no`, or quit.
+///
+/// Output is displayed to Stderr
+pub fn interactOpt(self: *const @This()) !?bool {
+    return try self.interactOnOpt(.stderr);
+}
 
 /// Interact with the user allowing them to select `yes`, `no`.
 ///

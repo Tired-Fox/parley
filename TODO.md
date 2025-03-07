@@ -1,7 +1,8 @@
 - [x] Confirmation
 - [ ] Input
+    - [x] Text
+    - [x] Password
     - [ ] Validation
-    - [ ] Password
     - [ ] History
     - [ ] Completion
 - [ ] Select

@@ -8,6 +8,7 @@ const Example = struct {
 
 const examples = [_]Example {
     .{ .name = "confirm", .path = "examples/confirm.zig",  },
+    .{ .name = "input", .path = "examples/input.zig",  },
 };
 
 pub fn build(b: *std.Build) void {
