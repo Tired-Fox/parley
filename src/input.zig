@@ -38,6 +38,8 @@ pub fn init(allocator: std.mem.Allocator, options: Options) @This() {
 pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
+    const console_output = zerm.Utf8ConsoleOutput.init();
+    defer console_output.deinit();
 
     var input = std.ArrayList(u21).init(self.allocator);
     var pos: usize = 0;
@@ -168,6 +170,8 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
 pub fn interactOn(self: *const @This(), stream: Stream) ![]const u8 {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
+    const console_output = zerm.Utf8ConsoleOutput.init();
+    defer console_output.deinit();
 
     var input = std.ArrayList(u21).init(self.allocator);
     defer input.deinit();

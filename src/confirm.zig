@@ -31,6 +31,8 @@ pub fn init(allocator: std.mem.Allocator, options: Options) @This() {
 pub fn interactOnOpt(self: *const @This(), stream: Stream) !?bool {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
+    const console_output = zerm.Utf8ConsoleOutput.init();
+    defer console_output.deinit();
 
     var confirmed: ?bool = self.options.default;
 
@@ -109,6 +111,8 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?bool {
 pub fn interactOn(self: *const @This(), stream: Stream) !bool {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
+    const console_output = zerm.Utf8ConsoleOutput.init();
+    defer console_output.deinit();
 
     var confirmed: ?bool = self.options.default;
 

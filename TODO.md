@@ -5,9 +5,8 @@
     - [ ] Validation
     - [ ] History
     - [ ] Completion
-- [ ] Select
+- [x] Select
     - [ ] Multi
     - [ ] Fuzzy
 - [ ] Sort
 - [ ] Themes
-- [ ] Editor support
