@@ -41,11 +41,13 @@ pub fn init(allo: std.mem.Allocator, opts: Options) @This() {
     };
 }
 
-pub fn interact(self: *const @This()) !usize {
+/// User is responsible for freeing the returned slice of selected indexes
+pub fn interact(self: *const @This()) ![]usize {
     return try self.interactOn(.stderr);
 }
 
-pub fn interactOpt(self: *const @This()) !?usize {
+/// User is responsible for freeing the returned slice of selected indexes
+pub fn interactOpt(self: *const @This()) !?[]usize {
     return try self.interactOnOpt(.stderr);
 }
 
@@ -55,9 +57,19 @@ fn clear(stream: Stream, lines: usize) !void {
 
 const RenderOptions = struct {
     lines: usize,
-    index: ?usize = null,
+    index: ?usize,
+    selected: []usize,
     optional: bool = false,
 };
+
+fn contains(T: type, haystack: []const T, needle: T) bool {
+    for (haystack) |h| if (std.meta.eql(h, needle)) return true;
+    return false;
+}
+fn indexOf(T: type, haystack: []const T, needle: T) ?usize {
+    for (haystack, 0..) |h, i| if (std.meta.eql(h, needle)) return i;
+    return null;
+}
 
 fn render(self: *const @This(), stream: Stream, ops: RenderOptions) !usize {
     const rows = (try getTermSize())[1];
@@ -82,18 +94,31 @@ fn render(self: *const @This(), stream: Stream, ops: RenderOptions) !usize {
     const min = current -| left;
     const max = @min(current + (height - (current - min)) + 1, self.options.items.len);
 
-    for (self.options.items[min..current]) |item| {
-        try queue.writeAll(.{ "[ ] ", item, "\r\n" });
+    for (self.options.items[min..current], min..current) |item, i| {
+        if (contains(usize, ops.selected, i)) {
+            try queue.writeAll(.{ "[x] ", item, "\r\n" });
+        } else {
+            try queue.writeAll(.{ "[ ] ", item, "\r\n" });
+        }
         row += 1;
     }
 
     {
-        try queue.writeAll(.{ self.options.highlight, if (ops.index != null) "[x] " else "[ ] ", self.options.items[current], self.options.highlight.reset(), "\r\n" });
+        const item = self.options.items[current];
+        if (contains(usize, ops.selected, current)) {
+            try queue.writeAll(.{ self.options.highlight, "[x] ", item, self.options.highlight.reset(), "\r\n" });
+        } else {
+            try queue.writeAll(.{ self.options.highlight, "[ ] ", item, self.options.highlight.reset(), "\r\n" });
+        }
         row += 1;
     }
 
-    for (self.options.items[current + 1..max]) |item| {
-        try queue.writeAll(.{ "[ ] ", item, "\r\n" });
+    for (self.options.items[current + 1..max], (current + 1)..max) |item, i| {
+        if (contains(usize, ops.selected, i)) {
+            try queue.writeAll(.{ "[x] ", item, "\r\n" });
+        } else {
+            try queue.writeAll(.{ "[ ] ", item, "\r\n" });
+        }
         row += 1;
     }
 
@@ -109,15 +134,18 @@ fn render(self: *const @This(), stream: Stream, ops: RenderOptions) !usize {
     return row;
 }
 
-pub fn interactOn(self: *const @This(), stream: Stream) !usize {
+/// User is responsible for freeing the returned slice of selected indexes
+pub fn interactOn(self: *const @This(), stream: Stream) ![]usize {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
     const console_output = zerm.Utf8ConsoleOutput.init();
     defer console_output.deinit();
 
-    var selected: usize = if (self.options.default)|default| @min(default, self.options.items.len -| 1) else 0;
+    var selected = std.ArrayList(usize).init(self.allocator);
+    errdefer selected.deinit();
+    var index: usize = if (self.options.default)|default| @min(default, self.options.items.len -| 1) else 0;
 
-    var lines = try self.render(stream, .{ .lines = 0, .index = selected });
+    var lines = try self.render(stream, .{ .lines = 0, .index = index, .selected=selected.items });
     try execute(stream, .{ Cursor { .col = 1, .up = @intCast(lines) } });
     try execute(stream, .{ Cursor { .save = true }, Cursor { .down = @intCast(lines) } });
 
@@ -126,15 +154,23 @@ pub fn interactOn(self: *const @This(), stream: Stream) !usize {
             switch (event) {
                 .key => |key| {
                     if (key.match(.{ .code = .enter })) break;
+                    if (key.match(.{ .code = .char(' ') })) {
+                        if (indexOf(usize, selected.items, index)) |idx| {
+                            _ = selected.swapRemove(idx);
+                        } else {
+                            try selected.append(index);
+                        }
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .selected=selected.items });
+                    }
 
                     if (key.match(.{ .code = .down })) {
-                        selected = @min(selected + 1, self.options.items.len - 1);
-                        lines = try self.render(stream, .{ .lines = lines, .index = selected });
+                        index = @min(index + 1, self.options.items.len - 1);
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .selected=selected.items });
                     }
 
                     if (key.match(.{ .code = .up })) {
-                        selected -|= 1;
-                        lines = try self.render(stream, .{ .lines = lines, .index = selected });
+                        index -|= 1;
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .selected=selected.items });
                     }
                 },
                 else => {}
@@ -144,7 +180,7 @@ pub fn interactOn(self: *const @This(), stream: Stream) !usize {
 
     try clear(stream, lines);
     if (self.options.report) {
-        const item = if (self.options.items.len > 0) self.options.items[selected] else "";
+        const item = if (self.options.items.len > 0) self.options.items[index] else "";
         if (self.options.prompt) |prompt| {
             try execute(stream, .{ prompt, ' ', item, "\r\n" });
         } else {
@@ -152,18 +188,21 @@ pub fn interactOn(self: *const @This(), stream: Stream) !usize {
         }
     }
 
-    return selected;
+    return try selected.toOwnedSlice();
 }
 
-pub fn interactOnOpt(self: *const @This(), stream: Stream) !?usize {
+/// User is responsible for freeing the returned slice of selected indexes
+pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]usize {
     var event_stream = EventStream.init(self.allocator);
     defer event_stream.deinit();
     const console_output = zerm.Utf8ConsoleOutput.init();
     defer console_output.deinit();
 
-    var selected: ?usize = if (self.options.default)|default| @min(default, self.options.items.len -| 1) else null;
+    var selected = std.ArrayList(usize).init(self.allocator);
+    errdefer selected.deinit();
+    var index: usize = if (self.options.default)|default| @min(default, self.options.items.len -| 1) else 0;
 
-    var lines = try self.render(stream, .{ .lines = 0, .index = selected, .optional = true });
+    var lines = try self.render(stream, .{ .lines = 0, .index = index, .optional = true, .selected=selected.items });
     try execute(stream, .{ Cursor { .col = 1, .up = @intCast(lines) } });
     try execute(stream, .{ Cursor { .save = true }, Cursor { .down = @intCast(lines) } });
 
@@ -175,20 +214,28 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?usize {
                         .{ .code = .esc },
                         .{ .code = .char('q') },
                     })) {
-                        selected = null;
+                        selected.clearAndFree();
                         break;
                     }
 
                     if (key.match(.{ .code = .enter })) break;
+                    if (key.match(.{ .code = .char(' ') })) {
+                        if (indexOf(usize, selected.items, index)) |idx| {
+                            _ = selected.swapRemove(idx);
+                        } else {
+                            try selected.append(index);
+                        }
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .optional = true, .selected=selected.items });
+                    }
 
                     if (key.match(.{ .code = .down })) {
-                        selected = if (selected) |i| @min(i + 1, self.options.items.len - 1) else 0;
-                        lines = try self.render(stream, .{ .lines = lines, .index = selected, .optional = true });
+                        index = @min(index + 1, self.options.items.len - 1);
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .optional = true, .selected=selected.items });
                     }
 
                     if (key.match(.{ .code = .up })) {
-                        selected = if (selected) |i| i -| 1 else self.options.items.len -| 1;
-                        lines = try self.render(stream, .{ .lines = lines, .index = selected, .optional = true });
+                        index = index -| 1;
+                        lines = try self.render(stream, .{ .lines = lines, .index = index, .optional = true, .selected=selected.items });
                     }
                 },
                 else => {}
@@ -198,7 +245,7 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?usize {
 
     try clear(stream, lines);
     if (self.options.report) {
-        const item = if (self.options.items.len > 0 and selected != null) self.options.items[selected.?] else "";
+        const item = if (self.options.items.len > 0) self.options.items[index] else "";
         if (self.options.prompt) |prompt| {
             try execute(stream, .{ prompt, ' ', item, "\r\n" });
         } else {
@@ -206,5 +253,10 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?usize {
         }
     }
 
-    return selected;
+    if (selected.items.len > 0) {
+        return try selected.toOwnedSlice();
+    } else {
+        selected.deinit();
+        return null;
+    }
 }
