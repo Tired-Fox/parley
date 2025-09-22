@@ -12,7 +12,11 @@ pub fn main() !void {
 
     std.debug.print("RESULT: {s}\n", .{value});
 
-    value = try parley.Input.init(arena.allocator(), .{ .prompt = "Enter your tag:", .password = .hidden, .password_toggle = .{ .code = .char(' ') } })
+    value = try parley.Input.init(arena.allocator(), .{
+        .prompt = "Enter your tag:",
+        .password = .hidden,
+        .password_toggle = .{ .code = .char(' ') },
+    })
         .interact();
     defer allo.free(value);
 
@@ -28,7 +32,11 @@ pub fn main() !void {
         std.debug.print("RESULT: \"\"\n", .{});
     }
 
-    valueOpt = try parley.Input.init(arena.allocator(), .{ .prompt = "Enter your tag:", .password = .hidden, .password_toggle = .{ .code = .char(' ') } })
+    valueOpt = try parley.Input.init(arena.allocator(), .{
+        .prompt = "Enter your tag:",
+        .password = .replaced,
+        .password_toggle = .{ .code = .char(' ') },
+    })
         .interactOpt();
     defer allo.free(value);
 

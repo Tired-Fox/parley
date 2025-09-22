@@ -4,9 +4,10 @@ const parley = @import("parley");
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
+    const allocator = arena.allocator();
 
     const result = try parley.MultiSelect
-        .init(arena.allocator(), .{
+        .init(allocator, .{
             .prompt = "Select Prompt:",
             .items = &.{
                 "One",
@@ -22,12 +23,12 @@ pub fn main() !void {
         })
         .interact();
     {
-        defer arena.allocator().free(result);
+        defer allocator.free(result);
         std.debug.print("{any}\n", .{ result });
     }
 
     const result_opt = try parley.MultiSelect
-        .init(arena.allocator(), .{
+        .init(allocator, .{
             .prompt = "Optional Select Prompt:",
             .items = &.{
                 "One",
@@ -43,7 +44,7 @@ pub fn main() !void {
         })
         .interactOpt();
     if (result_opt) |r| {
-        defer arena.allocator().free(r);
+        defer allocator.free(r);
         std.debug.print("{any}\n", .{ r });
     }
 }

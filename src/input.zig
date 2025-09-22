@@ -41,7 +41,8 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
     const console_output = zerm.Utf8ConsoleOutput.init();
     defer console_output.deinit();
 
-    var input = std.ArrayList(u21).init(self.allocator);
+    var input: std.ArrayList(u21) = .empty;
+    defer input.deinit(self.allocator);
     var pos: usize = 0;
 
     if (self.options.prompt) |prompt| {
@@ -57,7 +58,6 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
             switch (event) {
                 .key => |key| {
                     if (key.match(.{ .code = .esc })) {
-                        input.deinit();
                         return null;
                     }
 
@@ -115,9 +115,9 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
                                             Line { .erase = .to_end },
                                         }),
                                         .replaced => {
-                                            var replacement = std.ArrayList(u8).init(self.allocator);
-                                            defer replacement.deinit();
-                                            try replacement.appendNTimes('*', input.items.len);
+                                            var replacement: std.ArrayList(u8) = .empty;
+                                            defer replacement.deinit(self.allocator);
+                                            try replacement.appendNTimes(self.allocator, '*', input.items.len);
                                             try execute(stream, .{
                                                 Cursor { .restore = true },
                                                 Line { .erase = .to_end },
@@ -132,7 +132,7 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
                     }
 
                     if (key.code == .character and key.kind == .press) {
-                        try input.insert(pos, key.code.character);
+                        try input.insert(self.allocator, pos, key.code.character);
 
                         if (hidden) {
                             if (self.options.password == .replaced) try execute(stream, .{ '*' });
@@ -159,7 +159,6 @@ pub fn interactOnOpt(self: *const @This(), stream: Stream) !?[]const u8 {
     }
 
     if (input.items.len == 0) {
-        input.deinit();
         return  null;
     }
 
@@ -173,8 +172,8 @@ pub fn interactOn(self: *const @This(), stream: Stream) ![]const u8 {
     const console_output = zerm.Utf8ConsoleOutput.init();
     defer console_output.deinit();
 
-    var input = std.ArrayList(u21).init(self.allocator);
-    defer input.deinit();
+    var input: std.ArrayList(u21) = .empty;
+    defer input.deinit(self.allocator);
     var pos: usize = 0;
 
     if (self.options.prompt) |prompt| {
@@ -246,9 +245,9 @@ pub fn interactOn(self: *const @This(), stream: Stream) ![]const u8 {
                                             Line { .erase = .to_end },
                                         }),
                                         .replaced => {
-                                            var replacement = std.ArrayList(u8).init(self.allocator);
-                                            defer replacement.deinit();
-                                            try replacement.appendNTimes('*', input.items.len);
+                                            var replacement: std.ArrayList(u8) = .empty;
+                                            defer replacement.deinit(self.allocator);
+                                            try replacement.appendNTimes(self.allocator, '*', input.items.len);
                                             try execute(stream, .{
                                                 Cursor { .restore = true },
                                                 Line { .erase = .to_end },
@@ -263,7 +262,7 @@ pub fn interactOn(self: *const @This(), stream: Stream) ![]const u8 {
                     }
 
                     if (key.code == .character and key.kind == .press) {
-                        try input.insert(pos, key.code.character);
+                        try input.insert(self.allocator, pos, key.code.character);
 
                         if (hidden) {
                             if (self.options.password == .replaced) try execute(stream, .{ '*' });
@@ -293,16 +292,16 @@ pub fn interactOn(self: *const @This(), stream: Stream) ![]const u8 {
 }
 
 fn charToUtf8(allocator: std.mem.Allocator, input: []const u21) ![]const u8 {
-    var result = std.ArrayList(u8).init(allocator);
-    defer result.deinit();
+    var result: std.ArrayList(u8) = .empty;
+    defer result.deinit(allocator);
     for (input) |char| {
         var buff: [4]u8 = @splat(0);
         const size = try std.unicode.utf8Encode(char, &buff);
         if (size > 0) {
-            try result.appendSlice(buff[0..@intCast(size)]);
+            try result.appendSlice(allocator, buff[0..@intCast(size)]);
         }
     }
-    return try result.toOwnedSlice();
+    return try result.toOwnedSlice(allocator);
 }
 
 /// Interact with the user allowing them to enter text or `quit`.

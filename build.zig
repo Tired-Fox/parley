@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const ModuleMap = std.meta.Tuple(&[_]type{ []const u8, *std.Build.Module });
 const Example = struct {
     name: []const u8,
     path: []const u8,
@@ -17,25 +16,35 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const module = b.addModule("parley", .{ .root_source_file = b.path("src/root.zig") });
-
     const zerm_mod = b.dependency("zerm", .{}).module("zerm");
-    module.addImport("zerm", zerm_mod);
 
-    const lib_unit_tests = b.addTest(.{
+    const module = b.addModule("parley", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "zerm", .module = zerm_mod }
+        }
     });
-    lib_unit_tests.root_module.addImport("parley", module);
+
+    const lib_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "parley", .module = module }
+            }
+        })
+    });
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
 
     inline for (examples) |example| {
-        addExample(b, target, optimize, example, &[_]ModuleMap{
-            .{ "parley", module },
-            .{ "zerm", zerm_mod },
+        addExample(b, target, optimize, example, &.{
+            .{ .name = "parley", .module = module },
+            .{ .name = "zerm",   .module = zerm_mod },
         });
     }
 }
@@ -45,18 +54,17 @@ pub fn addExample(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     comptime example: Example,
-    modules: []const ModuleMap,
+    imports: []const std.Build.Module.Import,
 ) void {
     const exe = b.addExecutable(.{
         .name = example.name,
-        .root_source_file = b.path(example.path),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(example.path),
+            .target = target,
+            .optimize = optimize,
+            .imports = imports,
+        })
     });
-
-    for (modules) |module| {
-        exe.root_module.addImport(module[0], module[1]);
-    }
 
     const ecmd = b.addRunArtifact(exe);
     ecmd.step.dependOn(b.getInstallStep());
